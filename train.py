@@ -10,7 +10,7 @@ epochs = 10
 steps_per_epoch = 1000
 n_jobs = 8
 n_machines = 3
-n_actions = 6
+n_actions = 5
 n_types = 3
 
 env = Factory()
@@ -52,17 +52,17 @@ for epoch in range(epochs):
             agent.finish_trajectory(last_value)
             sum_return += episode_return
             num_episodes += 1
-            observation, episode_return, episode_length = env.reset(), 0, 0
+            observation, episode_return = env.reset(), 0
             
     agent.train()
-    # Print mean return and length for each epoch
+    # Print mean return for each epoch
         
     print(
         f" Epoch: {epoch + 1}. Mean Return: {round(sum_return/num_episodes,2)}"
     )
     
 
-
+env = Factory()
 obs = env.reset()
 
 while True:
@@ -72,6 +72,7 @@ while True:
     
     action = agent.choose_action(obs_m1, obs_m2, obs_m3)
     next_obs, reward, done, info = env.step(action)
+    print(action,reward)
     obs = next_obs
     if done:
         print('Number of late submissions:',info)

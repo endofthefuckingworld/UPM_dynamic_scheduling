@@ -24,13 +24,13 @@ SET_UP_TIME = [[0,3,1],
                [2,0,3],
                [2,3,0]]
 
-WEIGHTS = [1,1,5]
+WEIGHTS = [5,1,1]
 
 QUEUE_MAX_CONTENT = float('inf')
 
 PROCESSORS_AVAILABLE = 3
 
-ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR,Max_Weight_first]
+ACTION_SPACES = 5  #[SPT,EDD,MST,ST,CR]
 
 
 
@@ -107,17 +107,14 @@ class Queue:
             
     def wait_for_action(self, i):
         yield self.factory.get_action
-        self.sort_queue(self.factory.dispatcher.action, i)
-        product = self.queue[0]
-        self.queue.pop(0)
-        
-        # compute_reward
-        self.factory.compute_reward(self.env.now, product.ID)
-        
-        self.factory.L_q_calculator.change(self.env, False)
-        self.entity_type_now[i] = product.type
-        self.processors[i].process(product)
-            
+        if len(self.queue) > 0:
+            self.sort_queue(self.factory.dispatcher.action, i)
+            product = self.queue[0]
+            self.queue.pop(0)
+            self.factory.L_q_calculator.change(self.env, False)
+            self.entity_type_now[i] = product.type
+            self.processors[i].process(product)
+
     
     def product_arrival(self, product):
         self.factory.L_q_calculator.change(self.env, True)
@@ -139,8 +136,9 @@ class Queue:
             self.queue.sort(key = lambda entity : entity.due_dates - entity.process_time)
         elif rule_for_sorting == 4: #CR
             self.queue.sort(key = lambda entity : entity.due_dates / entity.process_time)
-        elif rule_for_sorting == 5: #Max_weight_first
-            self.queue.sort(key = lambda entity : -WEIGHTS[entity.type - 1])
+        
+        
+        
             
         #print('action:{}, queue:{}'.format(rule_for_sorting, [p.ID for p in self.queue]))
             
@@ -177,6 +175,9 @@ class Processor:
         self.factory.update_s_m1(product.ID, -1, self.env.now)
         self.factory.update_s_m3(self.Processor_id, self.previous_product_type, product.type, self.processor_avail_time)
         
+        # compute_reward
+        self.factory.compute_reward(self.env.now, process_time, product.ID)
+            
         yield self.env.timeout(process_time)
         #print("{} : product {} ,type{} finish treating at processor{}".format(self.env.now, product.ID, product.type, self.Processor_id))   
             
@@ -317,12 +318,13 @@ class Factory:
             self.observation[2][processor.Processor_id,-1] = self.env.now - processor.last_calculate_st
             
     #reward method
-    def compute_reward(self, start_process_t, job_id):
+    def compute_reward(self, start_process_t, process_t, job_id):
         weights = np.array(WEIGHTS, dtype = np.float32)
         weights = weights / np.sum(weights)
-        Latest_start_process_t = JOB_DATA[job_id][3] - JOB_DATA[job_id][2]
+        Latest_start_process_t = JOB_DATA[job_id][3] - process_t
         reward = (Latest_start_process_t - start_process_t)/(Latest_start_process_t - JOB_DATA[job_id][1])
 
+        
         weighted_reward = weights[JOB_DATA[job_id][0] - 1] * reward if reward >= 0 else weights[JOB_DATA[job_id][0] - 1] * -100
 
         self.reward += weighted_reward
