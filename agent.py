@@ -66,15 +66,15 @@ class PPO_agent:
         input_m3 = keras.Input(shape=(self.n_machines, 4, 1), dtype=tf.float32)
 
         layer1 = layers.Conv2D(16, 1, strides=3, activation="relu")(input_m1)
-        layer1 = layers.Conv2D(16, 1, strides=3, activation="relu")(layer1)
+        layer1 = layers.Conv2D(32, 1, strides=3, activation="relu")(layer1)
         layer1 = layers.Flatten()(layer1)
 
         layer2 = layers.Conv2D(16, 1, strides=3, activation="relu")(input_m2)
-        layer2 = layers.Conv2D(16, 1, strides=3, activation="relu")(layer2)
+        layer2 = layers.Conv2D(32, 1, strides=3, activation="relu")(layer2)
         layer2 = layers.Flatten()(layer2)
 
         layer3 = layers.Conv2D(16, 1, strides=3, activation="relu")(input_m3)
-        layer3 = layers.Conv2D(16, 1, strides=3, activation="relu")(layer3)
+        layer3 = layers.Conv2D(32, 1, strides=3, activation="relu")(layer3)
         layer3 = layers.Flatten()(layer3)
 
         combined = layers.concatenate([layer1, layer2, layer3])

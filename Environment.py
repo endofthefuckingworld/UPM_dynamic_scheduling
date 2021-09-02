@@ -24,13 +24,13 @@ SET_UP_TIME = [[0,3,1],
                [2,0,3],
                [2,3,0]]
 
-WEIGHTS = [5,1,1]
+WEIGHTS = [1,5,1]
 
 QUEUE_MAX_CONTENT = float('inf')
 
 PROCESSORS_AVAILABLE = 3
 
-ACTION_SPACES = 5  #[SPT,EDD,MST,ST,CR]
+ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR]
 
 
 
@@ -90,14 +90,15 @@ class Queue:
             return True
         
     def direct_process(self):
-        for i in range(len(self.processors)):
-            if self.processors[i].is_free == True:
-                product = self.queue[0]
-                self.factory.L_q_calculator.change(self.env, False)
-                self.entity_type_now[i] = product.type
-                self.queue.pop(0)
-                self.processors[i].process(product)
-                break
+        if len(self.queue) == 1:
+            for i in range(len(self.processors)):
+                if self.processors[i].is_free == True:
+                    product = self.queue[0]
+                    self.factory.L_q_calculator.change(self.env, False)
+                    self.entity_type_now[i] = product.type
+                    self.queue.pop(0)
+                    self.processors[i].process(product)
+                    break
     
     def get_product(self, i):
         if len(self.queue) > 0:
@@ -136,6 +137,8 @@ class Queue:
             self.queue.sort(key = lambda entity : entity.due_dates - entity.process_time)
         elif rule_for_sorting == 4: #CR
             self.queue.sort(key = lambda entity : entity.due_dates / entity.process_time)
+        elif rule_for_sorting == 5: #WSTP
+            self.queue.sort(key = lambda entity : entity.process_time / WEIGHTS[entity.type - 1])
         
         
         

@@ -10,7 +10,7 @@ epochs = 10
 steps_per_epoch = 1000
 n_jobs = 8
 n_machines = 3
-n_actions = 5
+n_actions = 6
 n_types = 3
 
 env = Factory()
@@ -70,9 +70,9 @@ while True:
     obs_m2 = obs[1].reshape(1, n_types, n_types, 1)
     obs_m3 = obs[2].reshape(1, n_machines, 4, 1)
     
-    action = agent.choose_action(obs_m1, obs_m2, obs_m3)
-    next_obs, reward, done, info = env.step(action)
-    print(action,reward)
+    _, action = agent.sample_action(obs_m1, obs_m2, obs_m3)
+    print(action)
+    next_obs, reward, done, info = env.step(action[0].numpy())
     obs = next_obs
     if done:
         print('Number of late submissions:',info)
