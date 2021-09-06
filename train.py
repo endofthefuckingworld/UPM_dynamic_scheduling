@@ -8,10 +8,10 @@ import tensorflow as tf
 
 epochs = 10
 steps_per_epoch = 1000
-n_jobs = 8
-n_machines = 3
+n_jobs = 15
+n_machines = 4
 n_actions = 6
-n_types = 3
+n_types = 15
 
 env = Factory()
 agent = PPO_agent(steps_per_epoch, n_jobs, n_machines, n_types, n_actions)

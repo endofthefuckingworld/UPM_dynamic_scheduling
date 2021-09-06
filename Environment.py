@@ -10,27 +10,19 @@ plt.style.use("seaborn")
 #Data
 
 #columns=[ job_type, arrival_time, process_time, due_dates]
-JOB_DATA = [[1,1,10,21],
-            [2,2,12,26],
-            [1,3,10,23],
-            [3,4,11,26],
-            [3,5,11,27],
-            [1,6,10,26],
-            [3,7,11,29],
-            [2,8,12,32]]
+JOB_DATA = pd.read_csv('job_data.csv').to_numpy(dtype = np.int32)
 
 #determine setup_time by job_type
-SET_UP_TIME = [[0,3,1],
-               [2,0,3],
-               [2,3,0]]
+SET_UP_TIME = pd.read_csv('setup_times.csv').to_numpy()
 
-WEIGHTS = [1,5,1]
+WEIGHTS = np.ones(len(JOB_DATA))
+WEIGHTS[0] = 10
 
 QUEUE_MAX_CONTENT = float('inf')
 
-PROCESSORS_AVAILABLE = 3
+PROCESSORS_AVAILABLE = 4
 
-ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR]
+ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR,WSPT]
 
 
 
@@ -115,7 +107,7 @@ class Queue:
             self.factory.L_q_calculator.change(self.env, False)
             self.entity_type_now[i] = product.type
             self.processors[i].process(product)
-
+            
     
     def product_arrival(self, product):
         self.factory.L_q_calculator.change(self.env, True)
@@ -130,18 +122,15 @@ class Queue:
         elif rule_for_sorting == 1: #EDD
             self.queue.sort(key = lambda entity : entity.due_dates)
         elif rule_for_sorting == 2: #MST
-            a = [i for i in self.queue if i.type == self.entity_type_now[processor_id]]
-            b = [i for i in self.queue if i.type != self.entity_type_now[processor_id]]
-            self.queue = np.concatenate((a, b), axis=None).tolist()
+            from_type = self.entity_type_now[processor_id] 
+            if from_type != 0:
+                self.queue.sort(key = lambda entity : SET_UP_TIME[from_type - 1,entity.type - 1])
         elif rule_for_sorting == 3: #ST
             self.queue.sort(key = lambda entity : entity.due_dates - entity.process_time)
         elif rule_for_sorting == 4: #CR
             self.queue.sort(key = lambda entity : entity.due_dates / entity.process_time)
-        elif rule_for_sorting == 5: #WSTP
-            self.queue.sort(key = lambda entity : entity.process_time / WEIGHTS[entity.type - 1])
-        
-        
-        
+        elif rule_for_sorting == 5:  #WSPT
+            self.queue.sort(key = lambda entity : entity.process_time/WEIGHTS[entity.type -1])
             
         #print('action:{}, queue:{}'.format(rule_for_sorting, [p.ID for p in self.queue]))
             
@@ -180,7 +169,8 @@ class Processor:
         
         # compute_reward
         self.factory.compute_reward(self.env.now, process_time, product.ID)
-            
+        
+        
         yield self.env.timeout(process_time)
         #print("{} : product {} ,type{} finish treating at processor{}".format(self.env.now, product.ID, product.type, self.Processor_id))   
             
@@ -236,8 +226,7 @@ class Dispatcher:
         self.factory.get_action = self.factory.env.event()
         assert action in np.arange(ACTION_SPACES)
         self.action = action
-        
-        
+
 class Factory:
     def build(self):  
         self.env = simpy.Environment()
@@ -267,6 +256,7 @@ class Factory:
         
         self.observation = self.get_initial_state()
         self.reward = 0
+        
         
     def get_state(self):
         return copy.deepcopy(self.observation)
@@ -325,9 +315,8 @@ class Factory:
         weights = np.array(WEIGHTS, dtype = np.float32)
         weights = weights / np.sum(weights)
         Latest_start_process_t = JOB_DATA[job_id][3] - process_t
-        reward = (Latest_start_process_t - start_process_t)/(Latest_start_process_t - JOB_DATA[job_id][1])
-
-        
+        max_delay = Latest_start_process_t - JOB_DATA[job_id][1]
+        reward = (Latest_start_process_t - start_process_t)/max_delay if max_delay > 0 else -100
         weighted_reward = weights[JOB_DATA[job_id][0] - 1] * reward if reward >= 0 else weights[JOB_DATA[job_id][0] - 1] * -100
 
         self.reward += weighted_reward
@@ -361,3 +350,4 @@ class Factory:
         CT = np.mean([p.finish_time - p.arrival_time  for p in self.sink.warehouse])
         return CT
 
+        
