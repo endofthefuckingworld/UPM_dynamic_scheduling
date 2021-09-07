@@ -62,16 +62,15 @@ for epoch in range(epochs):
     )
     
 
-env = Factory()
+print('Start testing')
 obs = env.reset()
-
 while True:
     obs_m1 = obs[0].reshape(1, n_jobs, 6, 1)
     obs_m2 = obs[1].reshape(1, n_types, n_types, 1)
     obs_m3 = obs[2].reshape(1, n_machines, 4, 1)
     
     _, action = agent.sample_action(obs_m1, obs_m2, obs_m3)
-    print(action)
+    print('Time :{:5d} | take action:{:5d}'.format(env.env.now, action[0].numpy()))
     next_obs, reward, done, info = env.step(action[0].numpy())
     obs = next_obs
     if done:
