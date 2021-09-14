@@ -6,8 +6,8 @@ plt.style.use("seaborn")
 from tqdm import tqdm
 import tensorflow as tf
 
-epochs = 10
-steps_per_epoch = 1000
+epochs = 30
+steps_per_epoch = 4000
 n_jobs = 15
 n_machines = 4
 n_actions = 6

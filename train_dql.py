@@ -15,7 +15,8 @@ n_types = 15
 update_per_actions = 4
 max_memory_length = 10000
 max_steps_per_episode = 1000
-update_target_network = 1000
+update_target_network = 11000
+max_episode = 7000
 
 #agent and enviroment
 agent = DQL_agent(n_jobs, n_machines, n_actions, n_types)
@@ -77,7 +78,7 @@ while True:
         if episode % 100 == 0:
             print('Epoch:{:4d}, mean reward :{}'.format(episode, np.mean(episode_reward_buffer[-20:])))
         # solve condition
-        if episode >= 300:
+        if episode >= max_episode:
             print('Solve at epoch:{:4d}, reward:{}'.format(episode, np.mean(episode_reward_buffer[-20:])))
             break
             

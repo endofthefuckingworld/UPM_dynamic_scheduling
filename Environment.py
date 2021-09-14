@@ -16,7 +16,7 @@ JOB_DATA = pd.read_csv('job_data.csv').to_numpy(dtype = np.int32)
 SET_UP_TIME = pd.read_csv('setup_times.csv').to_numpy()
 
 WEIGHTS = np.ones(len(JOB_DATA))
-WEIGHTS[0] = 10
+#WEIGHTS[1] = 10
 
 QUEUE_MAX_CONTENT = float('inf')
 
