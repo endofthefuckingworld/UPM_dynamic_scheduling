@@ -205,7 +205,7 @@ class DQL_agent:
         # target_q_network for prediction of future rewards
         # build q_network and target_q_network
         self._build_q_network()
-        self.optimizer = keras.optimizers.Adam(learning_rate = 1e-3, clipnorm=1.0)
+        self.optimizer = keras.optimizers.Adam(learning_rate = 3e-4, clipnorm=1.0)
         self.batch_size = 32
         self.action_buffer = []
         self.s_m1_buffer = []
