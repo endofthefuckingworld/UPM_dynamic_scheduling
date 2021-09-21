@@ -13,10 +13,10 @@ n_types = 15
 
 # high parameters
 update_per_actions = 4
-max_memory_length = 10000
+max_memory_length = 20000
 max_steps_per_episode = 1000
 update_target_network = 11000
-max_episode = 7000
+max_episode = 8000
 
 #agent and enviroment
 agent = DQL_agent(n_jobs, n_machines, n_actions, n_types)
@@ -25,6 +25,8 @@ env = Factory()
 
 episode = 0
 episode_reward_buffer = []
+episode_epsilon_buffer = []
+rewards_epoch = []
 while True:
     episode += 1
     obs = env.reset()
@@ -76,6 +78,8 @@ while True:
     episode_reward_buffer.append(episode_reward)
     if len(episode_reward_buffer) > 20:
         if episode % 100 == 0:
+            rewards_epoch.append(np.mean(episode_reward_buffer[-20:]))
+            episode_epsilon_buffer.append(agent.epsilon)
             print('Epoch:{:4d}, mean reward :{}'.format(episode, np.mean(episode_reward_buffer[-20:])))
         # solve condition
         if episode >= max_episode:
@@ -97,3 +101,20 @@ while True:
     if done:
         print('Number of late submissions:',info)
         break
+
+import matplotlib.pyplot as plt
+plt.style.use("seaborn")
+
+plt.plot(np.arange(1,len(episode_epsilon_buffer)+1), episode_epsilon_buffer)
+plt.title('Epsilon per episode')
+plt.ylabel('epsilon')
+plt.ylim(0.0,1.0)
+plt.xlabel('epoch')
+plt.show()
+
+plt.plot(np.arange(100,len(rewards_epoch)*100+1, 100), rewards_epoch)
+plt.title('Average sum of rewards per episode')
+plt.ylabel('sum of rewards')
+plt.ylim(-55,-25)
+plt.xlabel('epoch')
+plt.show()

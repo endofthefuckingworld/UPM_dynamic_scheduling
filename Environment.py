@@ -24,8 +24,6 @@ PROCESSORS_AVAILABLE = 4
 
 ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR,WSPT]
 
-
-
 class Product:
     def __init__(self, ID, j_type, arrival_time, process_time, due_dates):
         self.ID = ID
@@ -49,16 +47,20 @@ class Source:
              
     def generate_product(self):
         for i in range(len(JOB_DATA)):
-            inter_arrival = JOB_DATA[i][1] - JOB_DATA[i-1][1] if i>=1 else JOB_DATA[i][1]
-            
-            yield self.env.timeout(inter_arrival)
+            self.inter_arrival = JOB_DATA[i][1] - JOB_DATA[i-1][1] if i>=1 else JOB_DATA[i][1]
+            yield self.env.timeout(self.inter_arrival)
             self.output += 1
             product = Product(i, JOB_DATA[i][0], JOB_DATA[i][1], JOB_DATA[i][2], JOB_DATA[i][3])
             if self.queue.is_queue_full() == True:
                 self.factory.L_calculator.change(self.env, True)
                 #print("{} : product {} ,type{} arrive".format(self.env.now, product.ID, product.type))
                 self.queue.product_arrival(product)
-                
+                if product.ID + 1 < len(JOB_DATA):
+                    if product.arrival_time == JOB_DATA[product.ID + 1][1]:
+                        continue
+                self.queue.direct_process()
+            
+            
 class Queue:
     def __init__(self, factory, max_content, name):
         self.name = name
@@ -69,10 +71,8 @@ class Queue:
         self.entity_type_now = np.zeros((PROCESSORS_AVAILABLE,), dtype=np.int32)
         
         
-    
     def initialization(self,output):
         self.processors = output
-        
         
     def is_queue_full(self):
         assert len(self.queue) <= self.max_content
@@ -91,32 +91,45 @@ class Queue:
                     self.queue.pop(0)
                     self.processors[i].process(product)
                     break
-    
-    def get_product(self, i):
-        if len(self.queue) > 0:
-            self.factory.decision_point.succeed()
-            self.factory.decision_point = self.env.event()
-            self.env.process(self.wait_for_action(i))
+        if len(self.queue) > 1:
+            for i in range(len(self.processors)):
+                if self.processors[i].is_free == True:
+                    self.factory.decision_point.succeed()
+                    self.factory.decision_point = self.env.event()
+                    self.env.process(self.wait_for_action())
             
-    def wait_for_action(self, i):
+    def get_product(self, i, p_t):
+        if self.env.now not in [j[1] for j in JOB_DATA] or \
+        (self.env.now in [j[1] for j in JOB_DATA] and p_t < self.factory.source.inter_arrival):
+            if len(self.queue) > 1:
+                self.factory.decision_point.succeed()
+                self.factory.decision_point = self.env.event()
+                self.env.process(self.wait_for_action())
+            elif len(self.queue) == 1:
+                product = self.queue[0]
+                self.queue.pop(0)
+                self.factory.L_q_calculator.change(self.env, False)
+                self.entity_type_now[i] = product.type
+                self.processors[i].process(product)
+        
+    def wait_for_action(self):
         yield self.factory.get_action
-        if len(self.queue) > 0:
-            self.sort_queue(self.factory.dispatcher.action, i)
-            product = self.queue[0]
-            self.queue.pop(0)
-            self.factory.L_q_calculator.change(self.env, False)
-            self.entity_type_now[i] = product.type
-            self.processors[i].process(product)
+        for i in range(len(self.processors)):
+                if self.processors[i].is_free == True and len(self.queue) > 0:
+                    #print([i.type for i in self.queue])
+                    self.sort_queue(self.factory.dispatcher.action, i)
+                    product = self.queue[0]
+                    self.queue.pop(0)
+                    self.factory.L_q_calculator.change(self.env, False)
+                    self.entity_type_now[i] = product.type
+                    self.processors[i].process(product)
             
-    
     def product_arrival(self, product):
         self.factory.L_q_calculator.change(self.env, True)
         self.queue.append(product)
-        self.direct_process()
         
-        
+                       
     def sort_queue(self, rule_for_sorting, processor_id):
-        
         if rule_for_sorting == 0:  #SPT
             self.queue.sort(key = lambda entity : entity.process_time)
         elif rule_for_sorting == 1: #EDD
@@ -131,10 +144,9 @@ class Queue:
             self.queue.sort(key = lambda entity : entity.due_dates / entity.process_time)
         elif rule_for_sorting == 5:  #WSPT
             self.queue.sort(key = lambda entity : entity.process_time/WEIGHTS[entity.type -1])
-            
         #print('action:{}, queue:{}'.format(rule_for_sorting, [p.ID for p in self.queue]))
+           
             
-                
 class Processor:
     def __init__(self, factory, Processor_id, name):
         self.name = name
@@ -154,7 +166,7 @@ class Processor:
         self.is_free = False
         #print("{} : product {} ,type{} start treating at processor{}".format(self.env.now, product.ID, product.type, self.Processor_id))
         self.env.process(self.processing(product))
-    
+
     def processing(self, product):
         process_time = product.process_time + SET_UP_TIME[self.previous_product_type - 1][product.type - 1] if self.previous_product_type != 0 else product.process_time
         
@@ -163,24 +175,22 @@ class Processor:
         
         self.processor_avail_time = process_time + self.env.now
         
-        #update state
+        # update state
         self.factory.update_s_m1(product.ID, -1, self.env.now)
         self.factory.update_s_m3(self.Processor_id, self.previous_product_type, product.type, self.processor_avail_time)
         
         # compute_reward
         self.factory.compute_reward(self.env.now, process_time, product.ID)
         
-        
         yield self.env.timeout(process_time)
+        self.is_free = True
         #print("{} : product {} ,type{} finish treating at processor{}".format(self.env.now, product.ID, product.type, self.Processor_id))   
-            
         if self.output == self.factory.sink:
             self.output.store(product)
         else:
             self.output.product_arrival(product)
             
         self.previous_product_type = product.type
-        self.is_free = True
         self.processor_avail_time = 0
         
         # update state
@@ -189,7 +199,8 @@ class Processor:
         self.factory.update_s_mat()
 
         # decision point
-        self.queue.get_product(self.Processor_id)
+        self.queue.get_product(self.Processor_id, process_time)
+        
         
 class Sink:
     def __init__(self, factory):
@@ -227,6 +238,7 @@ class Dispatcher:
         assert action in np.arange(ACTION_SPACES)
         self.action = action
 
+
 class Factory:
     def build(self):  
         self.env = simpy.Environment()
@@ -257,11 +269,9 @@ class Factory:
         self.observation = self.get_initial_state()
         self.reward = 0
         
-        
     def get_state(self):
         return copy.deepcopy(self.observation)
         
-    
     def get_reward(self):
         return self.reward
         
@@ -350,4 +360,3 @@ class Factory:
         CT = np.mean([p.finish_time - p.arrival_time  for p in self.sink.warehouse])
         return CT
 
-        
