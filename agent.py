@@ -232,7 +232,7 @@ class DQL_agent:
         
     def _build_q_network(self):
         # Network architecture
-        input_m1 = keras.Input(shape=(self.n_jobs, 6, 1), dtype=tf.float32)
+        input_m1 = keras.Input(shape=(self.n_jobs, 5+self.n_machines, 1), dtype=tf.float32)
         input_m2 = keras.Input(shape=(self.n_types, self.n_types, 1), dtype=tf.float32)
         input_m3 = keras.Input(shape=(self.n_machines, 4, 1), dtype=tf.float32)
 
@@ -307,10 +307,14 @@ class DQL_agent:
         future_rewards = self.t_q_network.predict(
             [s_next_m1_sample, s_next_m2_sample, s_next_m3_sample]
         )
-        # Q value = reward + discount factor * expected future reward
-        updated_q_values = rewards_sample + self.gamma * tf.reduce_max(
-                    future_rewards, axis=1
+        next_action = tf.math.argmax(
+            self.q_network.predict([s_next_m1_sample, s_next_m2_sample, s_next_m3_sample]), 1
         )
+        
+        mask_next_action = tf.one_hot(next_action, self.n_actions)
+        # Q value = reward + discount factor * expected future reward
+        updated_q_values = rewards_sample + self.gamma * \
+        tf.reduce_sum(tf.multiply(future_rewards, mask_next_action), axis=1)
         # set last q value to -1
         updated_q_values = updated_q_values*(1 - done_sample) - done_sample
         masks = tf.one_hot(action_sample, self.n_actions)

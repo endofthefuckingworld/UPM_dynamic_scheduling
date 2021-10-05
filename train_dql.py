@@ -36,7 +36,7 @@ while True:
         agent.frame_count += 1
         
         # reshape to CNN acceptable
-        obs_m1 = obs[0].reshape(1, n_jobs, 6, 1)
+        obs_m1 = obs[0].reshape(1, n_jobs, 5+n_machines, 1)
         obs_m2 = obs[1].reshape(1, n_types, n_types, 1)
         obs_m3 = obs[2].reshape(1, n_machines, 4, 1)
         
@@ -52,7 +52,7 @@ while True:
 
         episode_reward += reward
         
-        next_obs_m1 = next_obs[0].reshape(1, n_jobs, 6, 1)
+        next_obs_m1 = next_obs[0].reshape(1, n_jobs, 5+n_machines, 1)
         next_obs_m2 = next_obs[1].reshape(1, n_types, n_types, 1)
         next_obs_m3 = next_obs[2].reshape(1, n_machines, 4, 1)
         
@@ -90,7 +90,7 @@ while True:
 
 obs = env.reset()
 while True:
-    obs_m1 = obs[0].reshape(1, n_jobs, 6, 1)
+    obs_m1 = obs[0].reshape(1, n_jobs, 5+n_machines, 1)
     obs_m2 = obs[1].reshape(1, n_types, n_types, 1)
     obs_m3 = obs[2].reshape(1, n_machines, 4, 1)
     
@@ -115,6 +115,5 @@ plt.show()
 plt.plot(np.arange(100,len(rewards_epoch)*100+1, 100), rewards_epoch)
 plt.title('Average sum of rewards per episode')
 plt.ylabel('sum of rewards')
-plt.ylim(-55,-25)
 plt.xlabel('epoch')
 plt.show()
