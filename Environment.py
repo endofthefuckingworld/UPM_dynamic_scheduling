@@ -7,20 +7,7 @@ import scipy.stats
 import copy
 plt.style.use("seaborn")
 
-#Data
-
-#columns=[ job_type, arrival_time, process_time, due_dates]
-JOB_DATA = pd.read_csv('job_data.csv').to_numpy(dtype = np.int32)
-
-#determine setup_time by job_type
-SET_UP_TIME = pd.read_csv('setup_times.csv').to_numpy()
-
-WEIGHTS = np.ones(len(JOB_DATA))
-#WEIGHTS[1] = 10
-
 QUEUE_MAX_CONTENT = float('inf')
-
-PROCESSORS_AVAILABLE = 4
 
 ACTION_SPACES = 6  #[SPT,EDD,MST,ST,CR,WSPT]
 
@@ -47,17 +34,18 @@ class Source:
         self.process = self.env.process(self.generate_product())
              
     def generate_product(self):
-        for i in range(len(JOB_DATA)):
-            self.inter_arrival = JOB_DATA[i][1] - JOB_DATA[i-1][1] if i>=1 else JOB_DATA[i][1]
+        for i in range(len(self.factory.JOB_DATA)):
+            self.inter_arrival = self.factory.JOB_DATA[i][1] - self.factory.JOB_DATA[i-1][1] if i>=1 else self.factory.JOB_DATA[i][1]
             yield self.env.timeout(self.inter_arrival)
             self.output += 1
-            product = Product(i, JOB_DATA[i][0], JOB_DATA[i][1], JOB_DATA[i][2:2+PROCESSORS_AVAILABLE], JOB_DATA[i][2+PROCESSORS_AVAILABLE])
+            product = Product(i, self.factory.JOB_DATA[i][0], self.factory.JOB_DATA[i][1], \
+                              self.factory.JOB_DATA[i][2:2+self.factory.PROCESSORS_AVAILABLE], self.factory.JOB_DATA[i][2+self.factory.PROCESSORS_AVAILABLE])
             yield self.env.timeout(0)
             if self.queue.is_queue_full() == True:
                 #print("{} : product {} ,type{} arrive".format(self.env.now, product.ID, product.type))
                 self.queue.product_arrival(product)
-                if product.ID + 1 < len(JOB_DATA):
-                    if product.arrival_time == JOB_DATA[product.ID + 1][1]:
+                if product.ID + 1 < len(self.factory.JOB_DATA):
+                    if product.arrival_time == self.factory.JOB_DATA[product.ID + 1][1]:
                         continue
                 self.queue.check_direct_process()
                          
@@ -68,7 +56,7 @@ class Queue:
         self.env = factory.env
         self.queue = []
         self.max_content = max_content
-        self.entity_type_now = np.zeros((PROCESSORS_AVAILABLE,), dtype=np.int32)
+        self.entity_type_now = np.zeros((self.factory.PROCESSORS_AVAILABLE,), dtype=np.int32)
         
     def set_port(self, output_port):
         self.processors = output_port
@@ -95,7 +83,7 @@ class Queue:
                     self.env.process(self.wait_for_action())
             
     def get_product(self, i, p_t):
-        if self.env.now not in [j[1] for j in JOB_DATA]:
+        if self.env.now not in [j[1] for j in self.factory.JOB_DATA]:
             if len(self.queue) > 1:
                 self.factory.decision_point.succeed()
                 self.factory.decision_point = self.env.event()
@@ -128,13 +116,13 @@ class Queue:
         elif rule_for_sorting == 2: #MST
             from_type = self.entity_type_now[processor_id] 
             if from_type != 0:
-                self.queue.sort(key = lambda entity : SET_UP_TIME[from_type - 1,entity.type - 1])
+                self.queue.sort(key = lambda entity : self.factory.SET_UP_TIME[from_type - 1,entity.type - 1])
         elif rule_for_sorting == 3: #ST
             self.queue.sort(key = lambda entity : entity.due_dates - entity.process_time[processor_id])
         elif rule_for_sorting == 4: #CR
             self.queue.sort(key = lambda entity : entity.due_dates / entity.process_time[processor_id])
         elif rule_for_sorting == 5:  #WSPT
-            self.queue.sort(key = lambda entity : entity.process_time[processor_id]/WEIGHTS[entity.type -1])
+            self.queue.sort(key = lambda entity : entity.process_time[processor_id]/self.factory.WEIGHTS[entity.type -1])
         #print('action:{}, queue:{}'.format(rule_for_sorting, [p.ID for p in self.queue]))
             
 class Processor:
@@ -158,7 +146,7 @@ class Processor:
         self.env.process(self.processing(product))
 
     def processing(self, product):
-        process_time = product.process_time[self.Processor_id] + SET_UP_TIME[self.previous_product_type - 1][product.type - 1] \
+        process_time = product.process_time[self.Processor_id] + self.factory.SET_UP_TIME[self.previous_product_type - 1][product.type - 1] \
         if self.previous_product_type != 0 else product.process_time[self.Processor_id]
         
         if process_time != product.process_time[self.Processor_id] or self.previous_product_type == 0:
@@ -198,7 +186,7 @@ class Sink:
         self.input = 0
         self.warehouse = []
         self.factory = factory
-        self.number_of_late = np.zeros(len(SET_UP_TIME))
+        self.number_of_late = np.zeros(len(self.factory.SET_UP_TIME))
           
     def store(self, product):
         self.input += 1 
@@ -206,7 +194,7 @@ class Sink:
         if product.finish_time > product.due_dates:
             self.number_of_late[product.type - 1] += 1
         
-        if self.input >= len(JOB_DATA):
+        if self.input >= len(self.factory.JOB_DATA):
             self.factory.decision_point.succeed()
             self.factory.terminal.succeed()
             
@@ -227,9 +215,18 @@ class Dispatcher:
         self.action = action
 
 class Factory:
+    def __init__(self, n):
+        #columns=[ job_type, arrival_time, process_time, due_dates]
+        self.JOB_DATA = pd.read_csv('Experiment_data/job_data'+str(n)+'.csv').to_numpy()
+        #determine setup_time by job_type
+        self.SET_UP_TIME = pd.read_csv('Experiment_data/setup_times'+str(n)+'.csv').to_numpy()
+        self.WEIGHTS = np.ones(len(self.JOB_DATA))
+        self.PROCESSORS_AVAILABLE = 4
+        #WEIGHTS[1] = 10
+        
     def build(self):  
         self.env = simpy.Environment()
-        self.processor_1_available = PROCESSORS_AVAILABLE
+        self.processor_1_available = self.PROCESSORS_AVAILABLE
         self.queue_1 = Queue(self, QUEUE_MAX_CONTENT, 'queue_1')
         self.processors_1 = [] 
         self.source = Source('source_1', self)
@@ -280,26 +277,26 @@ class Factory:
         state = self.get_state()
         reward = self.get_reward()
         done = self.terminal.triggered
-        info = self.sink.number_of_late
+        info = np.sum(self.WEIGHTS * self.sink.number_of_late)
         
         self.reset_reward()
         return state, reward, done, info
         
     #state method
     def get_initial_state(self):
-        matrix_1 = np.zeros((len(JOB_DATA), 5+PROCESSORS_AVAILABLE), dtype = np.float32)
-        matrix_2 = np.array(SET_UP_TIME, dtype = np.float32)
-        matrix_3 = np.zeros((PROCESSORS_AVAILABLE, 4), dtype = np.float32)
+        matrix_1 = np.zeros((len(self.JOB_DATA), 5+self.PROCESSORS_AVAILABLE), dtype = np.float32)
+        matrix_2 = np.array(self.SET_UP_TIME, dtype = np.float32)
+        matrix_3 = np.zeros((self.PROCESSORS_AVAILABLE, 4), dtype = np.float32)
         for i in range(len(matrix_1)):
-            matrix_1[i][:len(JOB_DATA[i])] = JOB_DATA[i]
+            matrix_1[i][:len(self.JOB_DATA[i])] = self.JOB_DATA[i]
 
         return [matrix_1, matrix_2, matrix_3]
     
     def update_s_ps(self, job_id, process_state):
-        self.observation[0][job_id,3+PROCESSORS_AVAILABLE] = process_state
+        self.observation[0][job_id,3+self.PROCESSORS_AVAILABLE] = process_state
         
     def update_s_t(self, time):
-        self.observation[0][:,4+PROCESSORS_AVAILABLE] = time
+        self.observation[0][:,4+self.PROCESSORS_AVAILABLE] = time
         
     def update_s_m3(self, machine_id, previous_j_type, now_j_type, mat):
         self.observation[2][machine_id,:-1] = [previous_j_type, now_j_type, mat]
@@ -310,12 +307,12 @@ class Factory:
             
     #reward method
     def compute_reward(self, start_process_t, process_t, job_id):
-        weights = np.array(WEIGHTS, dtype = np.float32)
+        weights = np.array(self.WEIGHTS, dtype = np.float32)
         weights = weights / np.sum(weights)
-        Latest_start_process_t = JOB_DATA[job_id][2+PROCESSORS_AVAILABLE] - process_t
-        max_delay = Latest_start_process_t - JOB_DATA[job_id][1]
+        Latest_start_process_t = self.JOB_DATA[job_id][2+self.PROCESSORS_AVAILABLE] - process_t
+        max_delay = Latest_start_process_t - self.JOB_DATA[job_id][1]
         reward = (Latest_start_process_t - start_process_t)/max_delay if max_delay > 0 else -100
-        weighted_reward = weights[int(JOB_DATA[job_id][0] - 1)] * reward if reward >= 0 else weights[int(JOB_DATA[job_id][0] - 1)] * -100
+        weighted_reward = weights[int(self.JOB_DATA[job_id][0] - 1)] * reward if reward >= 0 else weights[int(self.JOB_DATA[job_id][0] - 1)] * -100
 
         self.reward += weighted_reward
 
