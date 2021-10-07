@@ -1,1 +1,12 @@
-Time :3.0 | take action:2Time :42.44206985880948 | take action:4Time :62.70785219667636 | take action:4Time :64.47360184133001 | take action:4Time :78.38220653670237 | take action:4Time :127.45934400340792 | take action:4Time :149.70474168023625 | take action:4Time :168.3567319980934 | take action:4Time :170.34507567563463 | take action:5Time :183.758560277913 | take action:5Time :193.43202179630921 | take action:5weighted delay:6.0
+Time :3.0 | take action:2
+Time :42.44206985880948 | take action:5
+Time :62.70785219667636 | take action:3
+Time :64.14705216058968 | take action:3
+Time :64.47360184133001 | take action:5
+Time :78.38220653670237 | take action:5
+Time :104.0488627903834 | take action:5
+Time :106.94610062585286 | take action:4
+Time :108.46817252995328 | take action:4
+Time :127.89446223388742 | take action:5
+Time :170.19922021781764 | take action:5
+weighted delay:0.3333333507180214

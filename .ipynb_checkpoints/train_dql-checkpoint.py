@@ -5,6 +5,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tqdm import tqdm
 import numpy as np
+import pandas as pd 
 
 # problem size
 n_jobs = 15
@@ -14,10 +15,12 @@ n_types = 15
 
 # high parameters
 update_per_actions = 4
-max_memory_length = 20000
+max_memory_length = 30000
 max_steps_per_episode = 1000
-update_target_network = 11000
-max_episode = 7000
+update_target_network = 12000
+max_episode = 10000
+
+performance = np.zeros((30,4))
 
 for n in tqdm(range(30)):
     #agent and enviroment
@@ -77,9 +80,9 @@ for n in tqdm(range(30)):
                 break
 
         episode_reward_buffer.append(episode_reward)
-        if len(episode_reward_buffer) > 20:
+        if len(episode_reward_buffer) > 40:
             if episode % 100 == 0:
-                rewards_epoch.append(np.mean(episode_reward_buffer[-20:]))
+                rewards_epoch.append(np.mean(episode_reward_buffer[-40:]))
                 episode_epsilon_buffer.append(agent.epsilon)
                 #print('Epoch:{:4d}, mean reward :{}'.format(episode, np.mean(episode_reward_buffer[-20:])))
             # solve condition
@@ -97,13 +100,16 @@ for n in tqdm(range(30)):
         obs_m3 = obs[2].reshape(1, n_machines, 4, 1)
 
         action = np.argmax(agent.q_network.predict([obs_m1, obs_m2, obs_m3])[0])
-        f.writelines('Time :{} | take action:{}'.format(env.env.now, action))
+        f.writelines('Time :{} | take action:{}'.format(env.env.now, action)+'\r\n')
         next_obs, reward, done, info = env.step(action)
         obs = next_obs
         if done:
-            f.writelines('weighted delay:'+str(info))
+            f.writelines('weighted delay:'+str(info[0])+'\r\n')
+            performance[n] = info
             break
     f.close()
+    
+    
     
     import matplotlib.pyplot as plt
     plt.style.use("seaborn")
@@ -114,3 +120,6 @@ for n in tqdm(range(30)):
     plt.xlabel('epoch')
     plt.savefig('Experiment_train/train'+str(n)+'.png')
     plt.close()
+    
+p_df = pd.DataFrame(performance)
+p_df.to_csv('DQN_performance.csv', index=False)

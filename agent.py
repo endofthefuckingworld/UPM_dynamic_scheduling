@@ -222,9 +222,9 @@ class DQL_agent:
         self.epsilon = 1.0
         self.epsilon_min = 0.1
         # random steps
-        self.epsilon_random_frames = 22000
+        self.epsilon_random_frames = 24000
         # for epsilon decay
-        self.epsilon_greedy_frames = 50000.0
+        self.epsilon_greedy_frames = 96000.0
         # train model after actions
         self.loss_function = keras.losses.Huber()
         # discounted ratio

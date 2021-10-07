@@ -193,6 +193,9 @@ class Sink:
         product.finish_time = self.env.now
         if product.finish_time > product.due_dates:
             self.number_of_late[product.type - 1] += 1
+            
+        self.factory.tardiness_set.append(max(product.finish_time - product.due_dates, 0))
+        self.factory.cycle_time_set.append(product.finish_time - product.arrival_time)
         
         if self.input >= len(self.factory.JOB_DATA):
             self.factory.decision_point.succeed()
@@ -239,6 +242,9 @@ class Factory:
             self.processors_1, self.processor_1_available, 'processor_1', self.queue_1, self.sink
         )
         
+        self.cycle_time_set = []
+        self.tardiness_set = []
+        
         #making action event
         self.decision_point = self.env.event()
         
@@ -277,7 +283,12 @@ class Factory:
         state = self.get_state()
         reward = self.get_reward()
         done = self.terminal.triggered
-        info = np.sum(self.WEIGHTS * self.sink.number_of_late)
+        
+        weights = np.array(self.WEIGHTS, dtype = np.float32)
+        weights = weights / np.sum(weights)
+        
+        #mean weighted tardiness, makespan, cycle time, tardiness
+        info = [np.sum(weights * self.sink.number_of_late), self.env.now, np.mean(self.cycle_time_set), np.mean(self.tardiness_set)]
         
         self.reset_reward()
         return state, reward, done, info
